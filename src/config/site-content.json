@@ -1,8 +1,8 @@
 {
 	"meta": {
-		"title": "YYsuni",
-		"description": "YYsuni 的个人博客，记录前端开发、探索、笔记。前端 UI 更新代码仓库。",
-		"username": "Suni"
+		"title": "Fox Infra",
+		"description": "🦊大侠的 AI 基础设施博客，记录 GPU、CUDA、vLLM 与 SGLang 的学习、实验和性能优化。把原理讲清，把性能跑出来。",
+		"username": "🦊大侠"
 	},
 	"theme": {
 		"colorBrand": "#2fcbe7",
@@ -45,23 +45,9 @@
 		{
 			"id": "github",
 			"type": "github",
-			"value": "https://github.com/yysuni",
-			"label": "Github",
+			"value": "https://github.com/zhangji520-github",
+			"label": "GitHub",
 			"order": 3
-		},
-		{
-			"id": "juejin",
-			"type": "juejin",
-			"value": "https://juejin.cn/user/2427311675422382",
-			"label": "稀土掘金",
-			"order": 2
-		},
-		{
-			"id": "email",
-			"type": "email",
-			"value": "yysuni1001@gmail.com",
-			"label": "",
-			"order": 1
 		}
 	],
 	"clockShowSeconds": false,
