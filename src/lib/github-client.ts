@@ -169,8 +169,19 @@ export async function updateRef(token: string, owner: string, repo: string, ref:
 		body: JSON.stringify({ sha, force })
 	})
 	if (res.status === 401) handle401Error()
-	if (res.status === 422) handle422Error()
-	if (!res.ok) throw new Error(`update ref failed: ${res.status}`)
+	if (!res.ok) {
+		let detail = ''
+		try {
+			const body = await res.json()
+			detail = body?.message ? `: ${body.message}` : ''
+		} catch {
+			// Keep the status when GitHub does not return JSON.
+		}
+		if (res.status === 422) handle422Error()
+		const error = new Error(`update ref failed: ${res.status}${detail}`) as Error & { status?: number }
+		error.status = res.status
+		throw error
+	}
 }
 
 export async function readTextFileFromRepo(token: string, owner: string, repo: string, path: string, ref: string): Promise<string | null> {
