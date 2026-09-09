@@ -5,10 +5,12 @@ import { pushBlog } from '../services/push-blog'
 import { deleteBlog } from '../services/delete-blog'
 import { useWriteStore } from '../stores/write-store'
 import { useAuthStore } from '@/hooks/use-auth'
+import { useRouter } from 'next/navigation'
 
 export function usePublish() {
 	const { loading, setLoading, form, cover, images, mode, originalSlug } = useWriteStore()
 	const { isAuth, setPrivateKey } = useAuthStore()
+	const router = useRouter()
 
 	const onChoosePrivateKey = useCallback(
 		async (file: File) => {
@@ -48,13 +50,14 @@ export function usePublish() {
 		try {
 			setLoading(true)
 			await deleteBlog(targetSlug)
+			router.push('/blog')
 		} catch (err: any) {
 			console.error(err)
 			toast.error(err?.message || '删除失败')
 		} finally {
 			setLoading(false)
 		}
-	}, [form.slug, originalSlug, setLoading])
+	}, [form.slug, originalSlug, router, setLoading])
 
 	return {
 		isAuth,
