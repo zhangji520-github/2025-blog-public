@@ -19,7 +19,10 @@ type BlogPreviewProps = {
 
 export function BlogPreview({ markdown, title, tags, date, summary, cover, slug }: BlogPreviewProps) {
 	const { maxSM: isMobile } = useSize()
-	const { content, toc, loading } = useMarkdownRender(markdown)
+	// The article header already displays the title. Keep the source Markdown intact.
+	const openingHeading = markdown.match(/^\uFEFF?\s*#\s+([^\r\n]+)\r?\n/)
+	const body = openingHeading?.[1].trim() === title.trim() ? markdown.slice(openingHeading[0].length).replace(/^\s*\n/, '') : markdown
+	const { content, toc, loading } = useMarkdownRender(body)
 	const { siteContent } = useConfigStore()
 	const summaryInContent = siteContent.summaryInContent ?? false
 
@@ -33,9 +36,9 @@ export function BlogPreview({ markdown, title, tags, date, summary, cover, slug 
 				initial={{ opacity: 0 }}
 				animate={{ opacity: 1 }}
 				transition={{ delay: INIT_DELAY }}
-				className='card bg-article static flex-1 overflow-auto rounded-xl p-8'>
+				className='card bg-article static min-w-0 flex-1 overflow-auto rounded-2xl p-10 max-sm:p-5'>
 				<div>
-					<div className='text-center text-2xl font-semibold'>{title}</div>
+					<h1 className='text-center text-3xl leading-snug font-bold tracking-tight max-sm:text-2xl'>{title}</h1>
 
 					<div className='text-secondary mt-4 flex flex-wrap items-center justify-center gap-3 px-8 text-center text-sm'>
 						{tags.map(t => (
@@ -47,7 +50,7 @@ export function BlogPreview({ markdown, title, tags, date, summary, cover, slug 
 
 					{summary && summaryInContent && <div className='text-secondary mt-6 cursor-text text-center text-sm'>“{summary}”</div>}
 
-					<div className='prose mt-6 max-w-none cursor-text'>{content}</div>
+					<div className='prose mt-8 max-w-none cursor-text border-t border-black/5 pt-6'>{content}</div>
 				</div>
 			</motion.article>
 

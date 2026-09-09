@@ -1,9 +1,9 @@
 .prose {
-	line-height: 1.8;
+	line-height: 1.9;
 	color: inherit;
 	word-break: break-word;
-	letter-spacing: 0.03em;
-	font-size: 15px;
+	letter-spacing: 0.01em;
+	font-size: 16px;
 	width: 100%;
 	overflow: hidden;
 }
@@ -13,45 +13,31 @@
 .prose h2,
 .prose h3 {
 	font-weight: 700;
-	line-height: 1.25;
+	line-height: 1.45;
 	margin-top: 2em;
-	margin-bottom: 1.5em;
+	margin-bottom: 0.8em;
 
-	&::before {
-		content: '# ';
-		@apply text-brand/60;
-	}
 }
 .prose h1 {
 	font-size: 1.75rem;
 }
 .prose h2 {
 	font-size: 1.25rem;
+	padding-bottom: 0.55em;
+	border-bottom: 1px solid rgba(91, 66, 63, 0.12);
 }
 .prose h3 {
 	font-size: 1rem;
 	font-weight: 600;
 
-	&::before {
-		content: '## ';
-		@apply text-brand/60;
-	}
 }
 .prose h4 {
 	font-size: 0.85rem;
 	font-weight: 500;
-	&::before {
-		content: '### ';
-		@apply text-brand/60;
-	}
 }
 .prose h5 {
 	font-size: 0.75rem;
 	font-weight: 500;
-	&::before {
-		content: '#### ';
-		@apply text-brand/60;
-	}
 }
 
 /* Paragraph */
@@ -61,8 +47,8 @@
 
 .prose strong {
 	font-weight: 600;
-	color: var(--color-brand);
-	margin: 0 0.25em;
+	color: inherit;
+	margin: 0;
 }
 
 /* Links */
@@ -85,7 +71,7 @@
 	list-style-type: square;
 }
 .prose ol {
-	list-style-type: lower-roman;
+	list-style-type: decimal;
 }
 .prose li {
 	margin: 0.35em 0;
@@ -121,7 +107,7 @@
 	border-radius: 12px;
 	overflow: auto;
 	margin: 1em 0 2em;
-	line-height: 1.25em;
+	line-height: 1.65;
 	width: 100%;
 	display: block;
 }
@@ -177,7 +163,7 @@
 
 /* Images */
 .prose img {
-	max-width: 40%;
+	max-width: 100%;
 	margin: 1.5em auto;
 	height: auto;
 	border-radius: 12px;
@@ -204,6 +190,8 @@
 
 /* Tables */
 .prose table {
+	display: block;
+	overflow-x: auto;
 	width: 100%;
 	border-collapse: collapse;
 	font-size: 0.95em;
@@ -212,11 +200,35 @@
 .prose th,
 .prose td {
 	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-	padding: 0.5em 0.6em;
+	padding: 0.8em 0.9em;
 	text-align: left;
 }
 .prose thead th {
 	font-weight: 600;
+	background: rgba(47, 203, 231, 0.08);
+}
+
+.prose td {
+	vertical-align: top;
+	min-width: 110px;
+}
+
+.prose tbody tr:nth-child(even) {
+	background: rgba(91, 66, 63, 0.025);
+}
+
+.prose > :first-child {
+	margin-top: 0;
+}
+
+.prose .code-block-copy-btn:focus-visible,
+.prose .code-block-wrapper:focus-within .code-block-copy-btn {
+	opacity: 1;
+}
+
+@media (max-width: 640px) {
+	.prose { font-size: 15px; }
+	.prose .code-block-copy-btn { opacity: 1; }
 }
 
 /* Anchor offset for in-page headings */
