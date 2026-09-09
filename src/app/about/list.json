@@ -1,5 +1,5 @@
 {
-	"title": "关于本站",
-	"description": "一个基于 Github 的现代化博客系统",
-	"content": "📦网站基于 Github 仓库完全存储，所有内容版本可控\n\n🚀无后端，无 serverless function，纯静态站点\n\n✏️文章通过可视化 UI 直接编辑并提交到 Github 仓库\n\n🔑所有用户都可以编辑，提交需要 Owner 的 Private Key\n\n## 技术栈\n\n- Next.js\n- React\n- TypeScript\n- Tailwind CSS\n- Motion\n- Github API"
+	"title": "关于 Fox Infra",
+	"description": "🦊大侠的 AI 基础设施技术博客",
+	"content": "Fox Infra 是 🦊大侠的个人技术博客，专注于 AI 基础设施。\n\n这里会记录 GPU、CUDA、vLLM、SGLang，以及模型推理、系统性能优化相关的学习、实验和实践。\n\n## 写作方向\n\n- GPU 架构与显存\n- CUDA 编程与性能优化\n- vLLM 与 SGLang 推理引擎\n- AI Infra 工程实践\n\n把原理讲清，把性能跑出来。"
 }
