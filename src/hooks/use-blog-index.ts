@@ -19,7 +19,7 @@ const fetcher = async (url: string) => {
 export function useBlogIndex() {
 	const { isAuth } = useAuthStore()
 	const { data, error, isLoading } = useSWR<BlogIndexItem[]>('/blogs/index.json', fetcher, {
-		revalidateOnFocus: false,
+		revalidateOnFocus: true,
 		revalidateOnReconnect: true
 	})
 

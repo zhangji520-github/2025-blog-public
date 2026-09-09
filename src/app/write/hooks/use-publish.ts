@@ -33,6 +33,7 @@ export function usePublish() {
 
 			const successMsg = mode === 'edit' ? '更新成功' : '发布成功'
 			toast.success(successMsg)
+			router.push(`/blog/${form.slug}`)
 		} catch (err: any) {
 			console.error(err)
 			toast.error(err?.message || '操作失败')
