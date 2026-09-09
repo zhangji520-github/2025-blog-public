@@ -1,4 +1,4 @@
-import { marked } from 'marked'
+import { marked, Marked } from 'marked'
 import type { Tokens } from 'marked'
 
 export type TocItem = { id: string; text: string; level: number }
@@ -57,6 +57,8 @@ async function loadKatex() {
 }
 
 export async function renderMarkdown(markdown: string): Promise<MarkdownRenderResult> {
+	const parser = new Marked()
+	const escapeCode = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 	// Load optional renderers first so they apply on the FIRST lex/parse pass.
 	// (If we lex before registering extensions, math tokens won't ever be produced on a cold refresh.)
 	const codeBlockMap = new Map<string, { html: string; original: string }>()
@@ -79,13 +81,13 @@ export async function renderMarkdown(markdown: string): Promise<MarkdownRenderRe
 			const escapedCode = codeData.original.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 			if (codeData.html) {
 				// Shiki highlighted code
-				return `<pre data-code="${escapedCode}">${codeData.html}</pre>`
+				return codeData.html.replace('<pre ', `<pre data-code="${escapedCode}" `)
 			}
 			// Fallback for failed highlighting
-			return `<pre data-code="${escapedCode}"><code>${codeData.original}</code></pre>`
+			return `<pre data-code="${escapedCode}"><code>${escapeCode(codeData.original)}</code></pre>`
 		}
 		// Fallback to default (inline code, not code block)
-		return `<code>${token.text}</code>`
+		return `<pre data-code="${escapeCode(token.text)}"><code>${escapeCode(token.text)}</code></pre>`
 	}
 
 	renderer.listitem = (token: Tokens.ListItem) => {
@@ -94,7 +96,7 @@ export async function renderMarkdown(markdown: string): Promise<MarkdownRenderRe
 		let tokens = token.tokens
 
 		if (token.task) tokens = tokens.slice(1)
-		inner = marked.parser(tokens) as string
+		inner = parser.parser(tokens) as string
 
 		if (token.task) {
 			const checkbox = token.checked ? '<input type="checkbox" checked disabled />' : '<input type="checkbox" disabled />'
@@ -123,7 +125,7 @@ export async function renderMarkdown(markdown: string): Promise<MarkdownRenderRe
 	}
 
 	// Register extensions BEFORE lexing so math gets tokenized on cold refresh.
-	marked.use({
+	parser.use({
 		renderer,
 		extensions: [
 			// Block math: $$ ... $$
@@ -180,7 +182,7 @@ export async function renderMarkdown(markdown: string): Promise<MarkdownRenderRe
 	})
 
 	// Pre-process with marked lexer first (after extensions are registered)
-	const tokens = marked.lexer(markdown)
+	const tokens = parser.lexer(markdown)
 
 	// Extract TOC from parsed tokens (this correctly skips code blocks)
 	const toc: TocItem[] = []
@@ -201,7 +203,9 @@ export async function renderMarkdown(markdown: string): Promise<MarkdownRenderRe
 	extractHeadings(tokens)
 
 	// Pre-process code blocks with Shiki
-	for (const token of tokens) {
+	const codeTokens: Tokens.Code[] = []
+	parser.walkTokens(tokens, token => { if (token.type === 'code') codeTokens.push(token) })
+	for (const token of codeTokens) {
 		if (token.type === 'code') {
 			const codeToken = token as Tokens.Code
 			const originalCode = codeToken.text
@@ -210,7 +214,7 @@ export async function renderMarkdown(markdown: string): Promise<MarkdownRenderRe
 			if (shiki) {
 				try {
 					const html = await shiki.codeToHtml(originalCode, {
-						lang: codeToken.lang || 'text',
+						lang: ({ 'c++': 'cpp', 'plain text': 'text', 'plaintext': 'text' } as Record<string, string>)[(codeToken.lang || '').toLowerCase()] || (codeToken.lang || 'text').toLowerCase(),
 						theme: 'one-light'
 					})
 					codeBlockMap.set(key, { html, original: originalCode })
@@ -227,7 +231,7 @@ export async function renderMarkdown(markdown: string): Promise<MarkdownRenderRe
 			}
 		}
 	}
-	const html = (marked.parser(tokens) as string) || ''
+	const html = (parser.parser(tokens) as string) || ''
 
 	return { html, toc }
 }

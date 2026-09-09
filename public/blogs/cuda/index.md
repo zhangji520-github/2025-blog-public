@@ -166,24 +166,27 @@ CUDA C/C\+\+ 只是在 C/C\+\+ 的基础上增加了 GPU 编程语法，例如�
 
 ### 第一个程序
 
-```C++
-#include <cstdio>         *// 提供 printf()、fprintf()*
+```cpp
+#include <cstdio>         // 提供 printf()、fprintf()
 #include <cuda_runtime.h>
-*// 体现了 CUDA 程序常见的分工：CPU 组织任务，GPU 执行并行计算*
-*// __global__ 它表示这是一个 核函数（kernel）：这里由 CPU 发起调用，函数体在 GPU 上执行 *
+// CPU 组织任务，GPU 执行并行计算。
+// __global__ 声明核函数：由 CPU 启动，函数体在 GPU 上执行。
 __global__ void gpu_hello() {
-    if (threadIdx.x == 1&& blockIdx.x == 1) {*  // 线程块编号为1线程块中的第0个线程执行下面的代码*
+    if (threadIdx.x == 1 && blockIdx.x == 1) { // 编号为 1 的线程块中的编号为 1 的线程
         printf("Hello from GPU!\n");
     }
-    printf("线程块 %d，线程 %d\n", blockIdx.x, threadIdx.x);*   // threadIdx.x当前线程在线程块内的编号*
+    printf("线程块 %u，线程 %u\n", blockIdx.x, threadIdx.x); // 打印线程块和线程编号
 }
 
-int main() {*               // 程序从 main() 开始，在 CPU 上执行 核函数名<<<线程块数量, 每个线程块的线程数量>>>(函数参数);*
-    printf("CPU: Starting GPU task.\n");*    // cpu上面用 printf*
-*    // 执行到 gpu_hello<<<1, 1>>>(); 时，CPU 就通知 GPU：“请执行这个函数。”*
-    gpu_hello<<<2, 3>>>();* // 启动1个线程块 每个线程块一个线程** *
+int main() { // 程序从 CPU 上的 main() 开始
+    printf("CPU: Starting GPU task.\n");
+    // 核函数名<<<线程块数量, 每个线程块的线程数量>>>(参数)
+    gpu_hello<<<2, 3>>>(); // 启动 2 个线程块，每块 3 个线程
 
-    *cudaError_t* error = cudaDeviceSynchronize();*  // 让 CPU 停在这里，等 GPU 完成任务后再继续。*
+    cudaError_t error = cudaGetLastError(); // 检查核函数启动错误
+    if (error == cudaSuccess) {
+        error = cudaDeviceSynchronize(); // 等待 GPU 完成，并检查执行错误
+    }
     if (error != cudaSuccess) {
         fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(error));
         return 1;
