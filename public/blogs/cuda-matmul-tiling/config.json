@@ -1,0 +1,13 @@
+{
+  "title": "CUDA 矩阵乘法：分块与数据复用",
+  "tags": [
+    "CUDA",
+    "Matmul",
+    "分块",
+    "数据复用"
+  ],
+  "date": "2026-10-02T11:40",
+  "summary": "从正确的矩阵索引出发，理解 Block Tile、Thread Tile 如何组织共享内存与寄存器中的数据复用。",
+  "hidden": false,
+  "category": "CUDA"
+}

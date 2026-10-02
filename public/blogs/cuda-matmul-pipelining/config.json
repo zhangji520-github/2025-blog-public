@@ -1,0 +1,13 @@
+{
+  "title": "CUDA 矩阵乘法流水线：双缓冲与 Warp 分块",
+  "tags": [
+    "CUDA",
+    "Matmul",
+    "双缓冲",
+    "流水线"
+  ],
+  "date": "2026-10-02T11:40",
+  "summary": "把双缓冲理解成缓冲区所有权与时间安排，梳理共享内存级、寄存器级预取和 Warp Tile 的关系。",
+  "hidden": false,
+  "category": "CUDA"
+}

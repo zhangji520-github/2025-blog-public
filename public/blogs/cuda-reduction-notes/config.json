@@ -1,0 +1,13 @@
+{
+  "title": "CUDA 归约笔记：线程利用、Bank 冲突与分层合并",
+  "tags": [
+    "CUDA",
+    "Reduce",
+    "共享内存",
+    "Warp"
+  ],
+  "date": "2026-10-02T11:40",
+  "summary": "用局部累加、规整的线程参与模式和多层合并理解 Reduce，并区分并行深度、Bank 冲突与同步边界。",
+  "hidden": false,
+  "category": "CUDA"
+}

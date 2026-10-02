@@ -1,14 +1,14 @@
 {
-  "title": "第3课-Softmax算子的实现及优化",
+  "title": "Softmax 优化笔记：归约、访存与并行度",
   "tags": [
     "CUDA",
     "Softmax",
-    "算子优化",
-    "Nsight Compute"
+    "归约",
+    "性能分析"
   ],
   "date": "2026-10-02T11:27",
-  "summary": "从 CPU 参考实现到 CUDA 共享内存归约、warp shuffle 与多 warp 协作，结合 Nsight Compute 分析 Softmax 算子的实现和优化。",
-  "cover": "/blogs/softmax-cuda-optimization/figure-11.png",
+  "summary": "整理 Softmax 的数值稳定性、线程映射、分层归约，以及从 Nsight Compute 指标判断性能瓶颈的思路。",
   "hidden": false,
-  "category": "CUDA"
+  "category": "CUDA",
+  "cover": "/blogs/softmax-cuda-optimization/figure-11.png"
 }
