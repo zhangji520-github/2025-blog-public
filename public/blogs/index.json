@@ -1,5 +1,20 @@
 [
   {
+    "slug": "softmax-cuda-optimization",
+    "title": "第3课-Softmax算子的实现及优化",
+    "tags": [
+      "CUDA",
+      "Softmax",
+      "算子优化",
+      "Nsight Compute"
+    ],
+    "date": "2026-10-02T11:27",
+    "summary": "从 CPU 参考实现到 CUDA 共享内存归约、warp shuffle 与多 warp 协作，结合 Nsight Compute 分析 Softmax 算子的实现和优化。",
+    "cover": "/blogs/softmax-cuda-optimization/figure-11.png",
+    "hidden": false,
+    "category": "CUDA"
+  },
+  {
     "slug": "cuda",
     "title": "Cuda线程模型和显存模型",
     "tags": [],
