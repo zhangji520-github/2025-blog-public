@@ -7,7 +7,7 @@
     "Warp"
   ],
   "date": "2026-10-02T11:40",
-  "summary": "用局部累加、规整的线程参与模式和多层合并理解 Reduce，并区分并行深度、Bank 冲突与同步边界。",
+  "summary": "用图示与两阶段 Reduce 实现串起局部累加、活跃线程排布、Bank 冲突、Warp 通信和跨块合并。",
   "hidden": false,
   "category": "CUDA"
 }

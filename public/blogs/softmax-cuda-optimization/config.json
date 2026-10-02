@@ -7,7 +7,7 @@
     "性能分析"
   ],
   "date": "2026-10-02T11:27",
-  "summary": "整理 Softmax 的数值稳定性、线程映射、分层归约，以及从 Nsight Compute 指标判断性能瓶颈的思路。",
+  "summary": "从数值稳定性与线程映射出发，展开分层归约的完整 FP32 实现，并结合数据流与 Nsight 截图分析性能瓶颈。",
   "hidden": false,
   "category": "CUDA",
   "cover": "/blogs/softmax-cuda-optimization/figure-11.png"

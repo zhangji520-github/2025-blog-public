@@ -7,7 +7,7 @@
     "数据复用"
   ],
   "date": "2026-10-02T11:40",
-  "summary": "从正确的矩阵索引出发，理解 Block Tile、Thread Tile 如何组织共享内存与寄存器中的数据复用。",
+  "summary": "展开共享内存分块和 Thread Tile 的核心实现、启动配置与边界处理，分析数据复用与寄存器压力的取舍。",
   "hidden": false,
   "category": "CUDA"
 }
