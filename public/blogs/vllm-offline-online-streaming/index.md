@@ -157,3 +157,42 @@ curl -N --noproxy '*' http://127.0.0.1:13311/v1/chat/completions \
            ↓  接口包装
 ⑤ data：发给用户的 JSON
 ```
+
+## Engine 接收+发送数据
+
+![](/blogs/vllm-offline-online-streaming/12.png)
+
+前端用户请求通过http传给AsyncLLM，后台输入线程运行 `process_input_sockets()`，通过 Poller 等待前端消息，解码后放入 `input_queue`。主循环与输入线程通过这个队列衔接。
+
+![](/blogs/vllm-offline-online-streaming/13.png)
+
+`process_input_sockets` 与 `_process_input_queue` 分别处于 Engine 请求处理链路的不同阶段。
+
+1.前者运行在后台输入线程中，负责通过 ZMQ socket 接收前端发送的请求消息，并在完成反序列化后将其放入内部输入队列 `input_queue`；
+
+2.后者则运行在 Engine 主循环中，负责从 `input_queue` 中取出这些请求，并进一步交由调度器和执行器处理。
+
+因此，`process_input_sockets` 主要承担外部通信与入队的职责，而 `_process_input_queue` 主要承担内部取队列与分发处理的职责。
+
+然后Engine从`input_queue` 获取请求并且开始推理
+
+![](/blogs/vllm-offline-online-streaming/14.png)
+
+- **AsyncLLM 提交请求**：把处理后的 prompt 和生成参数发给 Engine。
+- **`process_input_sockets` 接收**：解码消息，放进 `self.input_queue`。
+- **`_process_input_queue` 取出**：分发请求，把新增请求交给 Scheduler；随后引擎主循环调度并执行推理。
+- **推理结果入队**：引擎主循环把生成结果放进 `self.output_queue`。
+- **`process_output_sockets` 发送**：从输出队列取结果，通过 ZMQ PUSH 发回 AsyncLLM 所在的 API 服务进程。
+- **AsyncLLM 处理结果**：接收结果、解码成文字，按请求 ID 投递到对应的结果队列，供请求协程读取，最终返回给 curl。
+
+## 八股
+
+#### vllm推理的整个流程？
+
+用户通过 Chatbox、网页或 curl，向 vLLM 的 HTTP 接口发送请求。API 层处理消息并准备模型输入，然后调用 AsyncLLM。
+
+AsyncLLM 为请求注册专属输出队列，通过 EngineCoreClient 提交请求。EngineCoreClient 是通信代理，使用 ZMQ 的 ROUTER→DEALER，把请求发送到独立的 EngineCore 进程。
+
+EngineCore 的接收线程解码请求并放进 input_queue，主循环取出后进行调度和模型推理。结果进入 output_queue，再通过 PUSH→PULL 回传前端。
+
+vLLM 前端进程中的 AsyncLLM收到结果后，OutputProcessor 将 token 转成文本，并按 request_id 分发到请求专属队列。AsyncLLM 的 generate 持续取结果，通过 yield 交给 Serving；开启流式模式时，Serving 用 SSE 持续返回给用户，直到生成结束。
