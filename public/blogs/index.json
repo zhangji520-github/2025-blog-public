@@ -1,5 +1,19 @@
 [
   {
+    "slug": "softmax-cuda-implementation",
+    "title": "softmax算子的cuda实现",
+    "tags": [
+      "CUDA",
+      "Softmax",
+      "归约",
+      "Warp"
+    ],
+    "date": "2026-10-04T21:18",
+    "summary": "从 CPU 基线到 CUDA 归约，记录共享内存与 Warp 洗牌优化、启动配置和性能分析。",
+    "hidden": false,
+    "category": "CUDA"
+  },
+  {
     "slug": "vllm-offline-online-streaming",
     "title": "Vllm 的离线在线推理部署",
     "tags": [
