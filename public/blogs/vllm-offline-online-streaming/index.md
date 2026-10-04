@@ -1,74 +1,159 @@
-# vLLM 推理链路：从离线批量调用到在线流式返回
+# Vllm 的离线在线推理部署
 
-vLLM 的离线调用与在线服务共享一个关键思路：前端负责把用户输入整理成请求，EngineCore 负责调度与模型执行，输出处理再把生成的 token 变成调用方可消费的结果。两种入口的差异，主要在接口形态和结果交付方式。理解这条链路后，部署和调试时就能区分 HTTP、引擎与解码三个环节。
+## 离线推理
 
-## 离线调用：同步取得一批请求的结果
+打开 `code/course0/offline.py`，代码按以下要点组织：
 
-离线批量推理通常从 `LLM` 开始。下面的示例使用一个已下载的模型目录；`model` 也可换成支持的模型仓库标识。模型文件、依赖和 GPU 显存需要事先准备好。
+**要点 1：**本课程以 vLLM 0.30.0 的 V1 引擎为主。离线 `LLM` 可通过设置 `VLLM_ENABLE_V1_MULTIPROCESSING=0` 将前端与 EngineCore 放在同一进程，便于调试。
 
-```python
-from vllm import LLM, SamplingParams
+**要点 2：**定义四组提示文本，作为用户输入供模型续写：
 
+```Python
 prompts = [
     "Hello, my name is",
+    "The president of the United States is",
     "The capital of France is",
+    "The future of AI is",
 ]
-sampling_params = SamplingParams(temperature=0.7, top_p=0.95, max_tokens=64)
-
-llm = LLM(model="/path/to/model")
-outputs = llm.generate(prompts, sampling_params)
-
-for output in outputs:
-    print(output.prompt, output.outputs[0].text)
 ```
 
-`temperature` 调整采样分布：值较低时更偏向高概率 token，值较高时分布更平缓。`top_p=0.95` 则按概率从高到低选取累计概率达到阈值的候选集合，再在其中采样。两者控制的是生成选择过程，不能保证事实正确。`max_tokens` 限制生成 token 数量，也不等同于字数。
+**要点 3：**采用采样参数 `sampling_params` 控制生成行为，其中包含两个关键参数。本节课仅作简要理解：
 
-创建 `LLM` 会加载权重并准备执行资源，其中包括为 KV Cache 规划空间。解码新 token 时，KV Cache 复用历史位置的键和值，避免每一步都重新计算整段上下文。`generate` 接收一批提示，返回每个请求的生成结果；它是调用方等待整批结果的同步接口。
+- **温度（temperature）**：用于调节模型输出的概率分布多样性。温度越高，输出分布越平缓，随机性越强；温度越低，分布越尖锐，倾向于选择高概率词元。当温度趋近于 0 时，模型输出趋于确定性，几乎总是选择概率最高的词元。
+- **Top-p（nucleus sampling，p=0.95）**：按概率从高到低累加候选词元，保留累计概率达到或超过 p 的最小集合，再从中采样。它限制了低概率候选参与采样，但不保证生成内容的语义正确性。
 
-## 同步接口背后的执行分工
+![](/blogs/vllm-offline-online-streaming/01.png)
 
-在 vLLM V1 的常见多进程配置中，离线 `LLM` 的前端持有 `LLMEngine`，通过 `EngineCoreClient` 与后台的 EngineCore 通信。客户端负责提交请求并取得引擎输出，EngineCore 则维护调度状态，协调 Executor、Worker 和 ModelRunner 执行模型计算。前端的输出处理将内部 token 结果整理为 `RequestOutput`。这也解释了为什么 `LLMEngine` 中的 `self.engine_core` 是通信客户端，并不意味着 EngineCore 本体必定在同一个进程。
+**要点 4：**`llm = LLM(model="/root/model")` 使用前面下载的 Qwen3-0.6B 本地模型；也可以将 `model` 设为模型仓库标识。初始化时，vLLM 加载权重并规划 KV Cache 等运行时显存。KV Cache 保存历史 token 的键和值，供后续解码复用。
 
-```text
-Python 代码 → LLM / LLMEngine → EngineCoreClient
-                                  ⇅
-                              EngineCore → Executor / Worker / ModelRunner → GPU
-                                  ↓
-                         token 结果 → 输出处理 → RequestOutput
+**要点 5：**`outputs = llm.generate(prompts, sampling_params)` 提交请求并等待生成完成。默认多进程模式下，`LLM` 初始化时会建立前端 `LLMEngine` 与独立 `EngineCore` 进程的通信：
+
+- **LLMEngine** 处理输入并通过 `EngineCoreClient` 向 EngineCore 提交请求，随后接收内部结果。
+- **EngineCore** 维护调度状态，通过 Executor、Worker 和 ModelRunner 执行模型计算，并将结果返回前端。
+
+LLMEngine 在启动时，会根据当前运行模式创建一个通往 EngineCore 的客户端句柄。此后，所有推理请求都会通过 `self.engine_core` 发送给底层执行引擎。也就是说：
+
+- LLMEngine 主要负责对外接口层的工作，例如 tokenizer、输入预处理、输出后处理、统计日志、trace、兼容旧接口等。
+- EngineCoreClient 负责将 LLMEngine 的请求转交给真正的底层引擎 EngineCore，并将执行结果返回给上层。
+
+这里的 `self.engine_core` 是 `LLMEngine` 持有的客户端对象。在默认多进程模式下，EngineCore 本体运行于独立进程；设置 `VLLM_ENABLE_V1_MULTIPROCESSING=0` 时，客户端改用同进程实现。
+
+## 在线推理
+
+1. 先在launch.json写好配置
+
+![](/blogs/vllm-offline-online-streaming/02.png)
+
+1. 启动服务
+2. 可以在终端curl我的端点打上请求
+
+![](/blogs/vllm-offline-online-streaming/03.png)
+
+**`model`**：选择服务提供的模型，名字要和启动配置中的 `--served-model-name` 一致。
+
+**`messages`**：发送聊天记录。这里 `role: "user"` 表示用户说的话，`content` 是“你好”。
+
+**`max_tokens`**：最多生成 128 个 token，不等于 128 个字；模型也可能提前结束。
+
+## 流式输出
+
+“用户发问题 → 模型生成 → 返回回答”
+
+可以把 vLLM 的在线服务理解为基于 `AsyncLLM` 的前端与 EngineCore 协作架构：
+
+- `AsyncLLM` 通过 `EngineCoreClient` 与后台运行的 EngineCore 进程通信；
+- 前者负责接收请求、管理异步流并向上层持续返回结果；
+- 后者负责调度并调用执行层完成模型推理，将生成的 token 等内部结果返回前端；前端的 `OutputProcessor` 再将其转换为 `RequestOutput`，供上层持续读取。
+
+> 注：EngineCore 内部还需将计算结果逐层传递以完成完整的前向传播，上图聚焦进程间的输出回传链路
+
+![](/blogs/vllm-offline-online-streaming/04.png)
+
+```Plain Text
+用户（curl / 网页 / 聊天软件）
+          │ HTTP 请求：问题、模型名、生成参数
+          ▼
+      API Server ： 接收 HTTP 请求、检查参数，再把结果包装成 HTTP 响应
+          │ 调用
+          ▼
+       AsyncLLM ： 管理异步推理请求，处理输入，并把引擎输出整理成上层可用的结果
+          │ 通过内部客户端提交请求
+          ▼
+    EngineCoreClient ： AsyncLLM 使用的内部联络员，负责向 EngineCore 发请求、接收结果
+          │ ZMQ 跨进程传递
+          ▼
+       EngineCore ： 推理执行中心，决定这一轮处理哪些请求，并协调模型执行
+          │ 调度请求、管理 KV Cache
+          ▼
+ Executor / Worker / ModelRunner
+          │
+          ▼
+         GPU
 ```
 
-`VLLM_ENABLE_V1_MULTIPROCESSING=0` 可让同步引擎选用进程内客户端，便于观察调用链；默认的多进程路径使用后台进程和进程间通信。这个开关描述的是同步 `LLMEngine` 的调试方式，不应直接推广到在线 `AsyncLLM`：当前 V1 实现中的异步客户端要求多进程模式。具体类名与调用位置会随 vLLM 版本变化，排查问题时应以实际安装版本的源码为准。
+### 断点调试
 
-## 在线服务：HTTP 入口加异步结果流
+发送http请求给api server
 
-在线服务在引擎前面增加 API Server。它接收 HTTP 请求，校验参数，并将引擎结果封装成兼容 OpenAI 接口的响应。一个基本启动和请求示例如下：
-
-```bash
-vllm serve /path/to/model --served-model-name demo-model --host 127.0.0.1 --port 8000
-
-curl -N http://127.0.0.1:8000/v1/chat/completions \
+```C++
+curl -N --noproxy '*' http://127.0.0.1:13311/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"model":"demo-model","messages":[{"role":"user","content":"你好"}],"max_tokens":32,"stream":true}'
+  -d '{
+    "model": "Qwen/Qwen3-0.6B",
+    "messages": [{"role": "user", "content": "你好"}],
+    "max_tokens": 32,
+    "stream": true
+  }'
 ```
 
-请求中的 `model` 要与服务暴露的名称匹配。`messages` 是对话输入；`stream: true` 请求逐步返回结果。`curl -N` 关闭客户端输出缓冲，方便在终端观察响应片段。模型还必须支持所使用的聊天模板，否则应改用适合该模型的输入接口或配置模板。
+用 5 个断点观察“收到问题 → 发给引擎 → 收到 token → 转成文本 → 返回用户”
 
-V1 在线链路可以概括为：API Server 将请求交给 `AsyncLLM`；它通过异步的 `EngineCoreClient` 把请求送往 EngineCore，并持续接收引擎输出。EngineCore 调度请求、管理 KV Cache 并调用执行层。返回的 `new_token_ids` 仍是整数 token ID，前端 `OutputProcessor` 才将其解码并整理为上层的 `RequestOutput`；API Server 再封装为发送给客户端的数据。流式响应的“流”发生在结果持续交付这一层，不代表模型一次前向计算就直接生成完整文本。
+1. 接到用户请求
 
-```text
-HTTP 请求 → API Server → AsyncLLM → EngineCoreClient ⇄ EngineCore → GPU
-                ↑                         ↓
-          响应数据 ← 文本片段 ← OutputProcessor ← 新生成的 token ID
+![](/blogs/vllm-offline-online-streaming/05.png)
+
+![](/blogs/vllm-offline-online-streaming/06.png)
+
+这证明 HTTP 请求已经进入 API 服务。按 **F5** 继续。
+
+1. 看发给 EngineCore 引擎的请求
+
+![](/blogs/vllm-offline-online-streaming/07.png)
+
+![](/blogs/vllm-offline-online-streaming/08.png)
+
+1. 看enginecore返回的token
+
+![](/blogs/vllm-offline-online-streaming/09.png)
+
+- `request_id` 对应该请求，内部标识可能经过处理。
+- `new_token_ids` 是新生成的 token 整数列表。
+- `finish_reason` 通常在生成过程中为 `None`，结束时变为停止或长度限制原因。
+
+此处主要是 **token 数据，还不是最终显示的文本**。
+
+这个断点会反复命中。看清一次后，取消或禁用它，按 **F5**。
+
+1. 看 token 转成文本后的结果
+
+![](/blogs/vllm-offline-online-streaming/10.png)
+
+![](/blogs/vllm-offline-online-streaming/11.png)
+
+模型可能先生成思考内容，因此不保证第一段就是“你好”。
+
+这里的 `yield out` 将结果交给聊天接口层。看完后禁用断点，按 **F5**。
+
+1. 看真正发给用户的流式数据
+
+```Markdown
+① request.messages：用户的问题
+           ↓
+② prompt_token_ids：模型的输入
+           ↓  EngineCore 执行
+③ new_token_ids：新生成的 token
+           ↓  输出处理
+④ out.outputs[0].text：文字片段
+           ↓  接口包装
+⑤ data：发给用户的 JSON
 ```
-
-从调试角度，可以沿着五个观察点定位问题：HTTP 层收到的 `messages`，输入处理后的 token ID，EngineCore 返回的 `new_token_ids`，输出处理后的文本，以及最终写给 HTTP 客户端的数据。如果引擎已产生 token 但客户端没有文字，重点检查输出处理与接口封装；如果引擎尚无输出，则继续看排队、调度和执行状态。`finish_reason` 在生成中通常尚未确定，结束时才说明停止原因或长度限制。对于带思考内容的模型，首个流式片段也未必是用户最终看到的正文。
-
-离线接口适合脚本和批量任务：调用方一次提交提示并等待结果。在线接口适合并发请求和交互场景：HTTP 层与异步引擎协作，按请求持续交付结果。两者都依赖同一类核心工作：把请求调度到模型执行，并把内部 token 结果还原为可读输出。
-
-## 资料与版本说明
-
-- 学习资料：[《Vllm 的离线在线推理部署》](https://hqhw9f213hx.feishu.cn/wiki/CQcKwYweOi3hbWkB4W3cJJEmn7d)。本文按知识笔记重组，未复用资料中的课堂截图和未给出完整配置的断点步骤。
-- vLLM 官方文档：[EngineCoreClient](https://docs.vllm.ai/en/stable/api/vllm/v1/engine/core_client/)、[AsyncLLM](https://docs.vllm.ai/en/stable/api/vllm/v1/engine/async_llm/)、[OutputProcessor](https://docs.vllm.ai/en/stable/api/vllm/v1/engine/output_processor/)、[OpenAI 兼容服务](https://docs.vllm.ai/en/latest/serving/online_serving/openai_compatible_server/)。
-
-原资料写有“vLLM 0.30.0”，但未附可验证的环境信息。本文不将该版本号作为运行前提；示例与内部实现细节仍应对照实际安装版本核查。

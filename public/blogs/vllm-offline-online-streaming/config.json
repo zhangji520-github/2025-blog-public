@@ -1,14 +1,13 @@
 {
-  "title": "vLLM 推理链路：从离线批量调用到在线流式返回",
+  "title": "Vllm 的离线在线推理部署",
   "tags": [
     "vLLM",
-    "推理服务",
-    "流式输出",
-    "EngineCore"
+    "离线推理",
+    "在线推理",
+    "流式输出"
   ],
   "date": "2026-10-04T14:32",
-  "summary": "沿着 LLM、EngineCoreClient 与 AsyncLLM 的数据流，解释离线批量推理、在线服务和流式 token 返回的分工。",
+  "summary": "",
   "hidden": false,
   "category": "AI Infra"
 }
-
