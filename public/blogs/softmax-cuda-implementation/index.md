@@ -76,7 +76,7 @@ for (int i = 0; i < N; i++) {
       out_row[j] = expf(inp_row[j] - maxval);
       sum += out_row[j];
     }
-    
+
     float norm = 1.f / (float)sum;
     for (int j = 0; j < C; j++) {
       out_row[j] *= norm;
@@ -158,9 +158,9 @@ Speedup: 2.89843x
 
 然而，如何在一个线程块内部协调多个线程，使其高效地协作完成一行数据中的最大值和总和的计算，是一个值得深入思考的问题。我们的解决方案如下：假设输入张量在第二维度上的大小为 512，我们决定使用一个包含 16 个线程的线程块来协同处理这一行数据。具体思路分为两个阶段：
 
-1. **局部计算阶段**  
+1. **局部计算阶段**
 每个线程首先独立处理一部分数据，计算其负责范围内的局部最大值与局部和。由于总共有 512 个元素和 16 个线程，每个线程将负责 32 个数据点（即$512 / 16 = 32$）。例如，线程 0 处理索引为 0、32、64、96、… 的元素，线程 1 处理索引为 1、33、65、97、… 的元素，以此类推。通过这种方式，每个线程在其所负责的数据范围内独立计算出一个局部最大值和一个局部和。最终，我们共获得 16 个局部最大值和 16 个局部和。
-2. **归约阶段**  
+2. **归约阶段**
 **在第一阶段结束后，我们需要对每个线程的局部结果进行归约操作，以得到全局最大值和全局和。**对于最大值，我们需要在这 16 个局部最大值中找出最大值；而对于总和，则需要将 16 个局部和累加起来，得到最终的全局和。这个归约过程可以在同一个线程块内部通过共享内存和同步机制高效地完成。
 3. 这样就用一个线程块得到了一行当中的最大值，而最大值是计算`softmax`必须的。
 
@@ -173,10 +173,10 @@ Speedup: 2.89843x
    __global__ void softmax_forward_kernel2(float *out, const float *inp, int N,
                                            int C) {
      extern __shared__ float shared[];
-     int idx = blockIdx.x;   
-     int tid = threadIdx.x; 
+     int idx = blockIdx.x;
+     int tid = threadIdx.x;
      int block_size = blockDim.x;
-     const float *x = inp + idx * C;  
+     const float *x = inp + idx * C;
    ```
 3. **求线程的局部最大值**
 
@@ -414,7 +414,7 @@ int main() {
 我们的每个线程中都定义了`val`变量，随后通过`__shfl_sync`函数将线程2中的`val`值赋值给其他线程。结合实际运行结果可以验证上述分析：从输出结果中可以看出，所有有效线程中的`val`值均已变为 2，也就是所有线程会从val = \_\_shfl_sync(0xFFFFFFFF, val, srcLane, 32) ，就是dInput[2]中获取数据。
 
 ```Bash
-test_fss@node4:~/code/cuda_code/build/course3$ ./shuffle 
+test_fss@node4:~/code/cuda_code/build/course3$ ./shuffle
 Broadcasting value from thread 2:
 hOutput[0] = 2
 hOutput[1] = 2
@@ -630,7 +630,7 @@ __global__ void softmax_forward_kernel4(float* out, const float* inp, int N, int
     extern __shared__ float shared[];
     int idx = blockIdx.x;
     int tid = threadIdx.x;
-    int warpId = threadIdx.x / 32; 
+    int warpId = threadIdx.x / 32;
     int laneId = threadIdx.x % 32;
 
     int warpsPerBlock = blockDim.x / 32;
@@ -650,7 +650,7 @@ __global__ void softmax_forward_kernel4(float* out, const float* inp, int N, int
 1. 随后，我们将**一个 warp 内所有线程归约得到的最大值**写入共享内存中的 `maxvals[warpId]`。这样做的目的是为后续计算整个线程块范围内所有元素的最大值做准备。
 
 ```C++
-if (laneId == 0) 
+if (laneId == 0)
     maxvals[warpId] = maxval;
 __syncthreads();
 ```
